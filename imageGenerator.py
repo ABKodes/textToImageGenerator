@@ -58,12 +58,12 @@ for font_file in font_files:
             start_index = max_existing_index + 1
 
             # Generate 20 new images for this character for the current font
-            for i in range(start_index, start_index + 20):
+            for i in range(start_index, start_index + 1):
                 char_image_name = f"{char}_{i}.png"
                 char_image_path = os.path.join(char_folder_path, char_image_name)
 
                 # Create a blank image
-                image_size = (32, 32)  # Width, Height set to 32x32
+                image_size = (32,32)  # Width, Height set to 32x32
                 image = Image.new('L', image_size, color='white')  # 'L' mode for grayscale
 
                 # Draw the character on the image
@@ -84,7 +84,7 @@ for font_file in font_files:
     with open(processed_fonts_file, 'a', encoding='utf-8') as file:
         file.write(f"{font_file}\n")
 
-# Function to delete images within a specified range for every character
+# Function to delete images within a specified range and renumber the remaining files
 def delete_images_in_range(start_index, end_index):
     print(f"Deleting images from index {start_index} to {end_index} for every character...")
 
@@ -98,7 +98,6 @@ def delete_images_in_range(start_index, end_index):
 
         # Get all image files in the directory
         image_files = [f for f in os.listdir(char_folder_path) if f.endswith('.png')]
-        image_files.sort()  # Ensure they are processed in order
 
         # Select images within the specified range
         images_to_delete = [
@@ -115,16 +114,30 @@ def delete_images_in_range(start_index, end_index):
             except FileNotFoundError:
                 print(f"File not found, skipping: {image_path}")
 
-    print(f"Deletion of images from index {start_index} to {end_index} is complete.")
+        # Renumber the remaining images
+        remaining_files = [f for f in os.listdir(char_folder_path) if f.endswith('.png')]
+        remaining_files.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]))
+
+        for new_index, file_name in enumerate(remaining_files, start=1):
+            old_path = os.path.join(char_folder_path, file_name)
+            new_name = f"{char_folder_name}_{new_index}.png"
+            new_path = os.path.join(char_folder_path, new_name)
+            os.rename(old_path, new_path)
+
+    print(f"Deletion of images from index {start_index} to {end_index} and renumbering is complete.")
 
 # Ask user if they want to delete images and specify the range
-user_input = input("Do you want to delete a range of images for every character? (yes/no): ").strip().lower()
-if user_input == 'yes':
-    try:
-        start_index = int(input("Enter the start index of the range: "))
-        end_index = int(input("Enter the end index of the range: "))
-        delete_images_in_range(start_index, end_index)
-    except ValueError:
-        print("Invalid input. Please enter valid integer indices.")
-else:
-    print("No images were deleted.")
+while True:
+    user_input = input("Do you want to delete a range of images for every character? (yes/no): ").strip().lower()
+    if user_input == 'yes':
+        try:
+            start_index = int(input("Enter the start index of the range: "))
+            end_index = int(input("Enter the end index of the range: "))
+            delete_images_in_range(start_index, end_index)
+        except ValueError:
+            print("Invalid input. Please enter valid integer indices.")
+    elif user_input == 'no':
+        print("No more images will be deleted.")
+        break
+    else:
+        print("Invalid input. Please enter 'yes' or 'no'.")
