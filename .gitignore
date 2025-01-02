@@ -1,3 +1,5 @@
 /fonts
 /venv
 .venv
+amharic_dataset
+processed_fonts.txt
