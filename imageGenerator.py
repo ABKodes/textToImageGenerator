@@ -141,4 +141,3 @@ while True:
         break
     else:
         print("Invalid input. Please enter 'yes' or 'no'.")
- 
