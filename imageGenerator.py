@@ -83,12 +83,15 @@ for font_file in font_files:
                 image.save(char_image_path)
                 print(f"Saved image for '{char}' as {char_image_path}")
 
-                # Append metadata to the dataset labels
+                # Normalize the path to use forward slashes
+                image_path_normalized = os.path.normpath(os.path.abspath(char_image_path)).replace('\\', '/')
+
                 dataset_labels.append({
-                    "image_path": char_image_path,
+                    "image_path": image_path_normalized,
                     "font_type": font_file,
                     "label": char
                 })
+
 
     # Mark the font as processed
     processed_fonts.add(font_file)
