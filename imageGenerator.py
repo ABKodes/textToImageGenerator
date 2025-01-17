@@ -1,159 +1,143 @@
 from PIL import Image, ImageDraw, ImageFont
-import os
 import json
 
-# Define a mapping for restricted characters
-restricted_char_map = {
-    '"': 'QUOTE',
-    '<': 'LT',
-    '>': 'GT',
-    '?': 'QUESTION',
-    '*': 'STAR',
-    '/': 'FORWARD_SLASH',
-    '.': 'DOT'
-}
+import os
 
-def sanitize_char_for_filename(char):
-    """Replace restricted characters with safe substitutes for filenames."""
-    return restricted_char_map.get(char, char)
+class DatasetGenerator:
+    def __init__(self, text_file, font_dir, dataset_dir='amharic_dataset'):
+        self.text_file = text_file
+        self.font_dir = font_dir
+        self.dataset_dir = dataset_dir
+        self.processed_fonts_file = 'processed_fonts.txt'
+        self.restricted_char_map = {
+            '"': 'QUOTE',
+            '<': 'LT',
+            '>': 'GT',
+            '?': 'QUESTION',
+            '*': 'STAR',
+            '/': 'FORWARD_SLASH',
+            '.': 'DOT'
+        }
+        self.processed_fonts = self._load_processed_fonts()
+        self.dataset_labels = []
 
-# Path to the text file containing the scraped text
-input_file = 'text.txt'
+    def _load_processed_fonts(self):
+        if os.path.exists(self.processed_fonts_file):
+            with open(self.processed_fonts_file, 'r', encoding='utf-8') as file:
+                return set(file.read().splitlines())
+        return set()
 
-# Root directory for the dataset
-dataset_dir = 'amharic_dataset'
-os.makedirs(dataset_dir, exist_ok=True)  # Ensure the root directory exists
+    def _sanitize_char_for_filename(self, char):
+        """Replace restricted characters with safe substitutes for filenames."""
+        return self.restricted_char_map.get(char, char)
 
-# Directory containing font files
-font_dir = 'fonts'  # Replace with your font directory path
-font_files = [f for f in os.listdir(font_dir) if f.endswith(('.ttf', '.otf', '.TTF'))]  # List all font files
+    def generate_images(self):
+        with open(self.text_file, 'r', encoding='utf-8') as file:
+            text = file.read()
 
-# File to track processed fonts
-processed_fonts_file = 'processed_fonts.txt'
+        font_files = [f for f in os.listdir(self.font_dir) if f.endswith(('.ttf', '.otf', '.TTF'))]
+        for font_file in font_files:
+            if font_file in self.processed_fonts:
+                print(f"Skipping already processed font: {font_file}")
+                continue
 
-# Create or load the processed fonts list
-if os.path.exists(processed_fonts_file):
-    with open(processed_fonts_file, 'r', encoding='utf-8') as file:
-        processed_fonts = set(file.read().splitlines())
-else:
-    processed_fonts = set()
+            font_path = os.path.join(self.font_dir, font_file)
+            print(f"Processing new font: {font_file}")
 
-# Open the text file and read content
-with open(input_file, 'r', encoding='utf-8') as file:
-    text = file.read()
+            font_size = 20
+            font = ImageFont.truetype(font_path, font_size)
 
-# Metadata for labeling
-dataset_labels = []
+            for char in text:
+                if not char.isspace():
+                    self._process_char_for_font(char, font, font_file)
 
-# Loop through each font in the font directory
-for font_file in font_files:
-    if font_file in processed_fonts:
-        print(f"Skipping already processed font: {font_file}")
-        continue
+            self.processed_fonts.add(font_file)
+            with open(self.processed_fonts_file, 'a', encoding='utf-8') as file:
+                file.write(f"{font_file}\n")
 
-    font_path = os.path.join(font_dir, font_file)
-    print(f"Processing new font: {font_file}")
+        self._save_dataset_labels()
 
-    # Load the font
-    font_size = 20
-    font = ImageFont.truetype(font_path, font_size)
+    def _process_char_for_font(self, char, font, font_file):
+        safe_char = self._sanitize_char_for_filename(char)
+        char_folder_name = safe_char
+        char_folder_path = os.path.join(self.dataset_dir, char_folder_name)
+        os.makedirs(char_folder_path, exist_ok=True)
 
-    # Loop through each character in the text
-    for char in text:
-        if not char.isspace():  # Skip spaces and newlines
-            # Replace restricted characters for filenames
-            safe_char = sanitize_char_for_filename(char)
+        existing_files = os.listdir(char_folder_path)
+        max_existing_index = max([int(file.split('_')[-1].split('.')[0]) for file in existing_files if file.endswith('.png')], default=0)
+        start_index = max_existing_index + 1
 
-            # Normalize the character folder name
-            char_folder_name = safe_char  # Ensure it uses the sanitized character
-            char_folder_path = os.path.join(dataset_dir, char_folder_name)
+        for i in range(start_index, start_index + 1):
+            char_image_name = f"{safe_char}_{i}.png"
+            char_image_path = os.path.join(char_folder_path, char_image_name)
+            image = Image.new('L', (32, 32), color='white')
+            draw = ImageDraw.Draw(image)
+            text_bbox = draw.textbbox((0, 0), char, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
+            text_x = (32 - text_width) // 2
+            text_y = (32 - text_height) // 2
+            draw.text((text_x, text_y), char, fill='black', font=font)
+            image.save(char_image_path)
+            print(f"Saved image for '{char}' as {char_image_path}")
+            self.dataset_labels.append({"image_path": char_image_path, "font_type": font_file, "label": char})
 
-            # Create a directory for the character if it doesn't exist
-            os.makedirs(char_folder_path, exist_ok=True)
+    def _save_dataset_labels(self):
+        sorted_labels = sorted(self.dataset_labels, key=lambda x: x['label'])
+        output_json_file = 'amharic_dataset_labels.json'
+        with open(output_json_file, 'w', encoding='utf-8') as json_file:
+            json.dump(sorted_labels, json_file, ensure_ascii=False, indent=4)
+        print(f"Labels have been sorted and saved to {output_json_file}")
 
-            # Determine the starting index for new images
-            existing_files = os.listdir(char_folder_path)
-            max_existing_index = max(
-                [int(file.split('_')[-1].split('.')[0]) for file in existing_files if file.endswith('.png')],
-                default=0
-            )
-            start_index = max_existing_index + 1
+    def delete(self, start_index=None, end_index=None):
+        """Delete images within the specified range for every character."""
+        if start_index is None or end_index is None:
+            print("Both start and end indices must be specified for deletion.")
+            return
 
-            # Generate 20 new images for this character for the current font
-            for i in range(start_index, start_index + 1):
-                char_image_name = f"{safe_char}_{i}.png"
-                char_image_path = os.path.join(char_folder_path, char_image_name)
+        print(f"Deleting images from index {start_index} to {end_index} for every character...")
 
-                # Create a blank image
-                image_size = (32, 32)  # Width, Height set to 32x32
-                image = Image.new('L', image_size, color='white')  # 'L' mode for grayscale
+        # Iterate over all character folders in the dataset directory
+        for char_folder_name in os.listdir(self.dataset_dir):
+            char_folder_path = os.path.join(self.dataset_dir, char_folder_name)
 
-                # Draw the character on the image
-                draw = ImageDraw.Draw(image)
-                text_bbox = draw.textbbox((0, 0), char, font=font)
-                text_width = text_bbox[2] - text_bbox[0]
-                text_height = text_bbox[3] - text_bbox[1]
-                text_x = (image_size[0] - text_width) // 2
-                text_y = (image_size[1] - text_height) // 2
-                draw.text((text_x, text_y), char, fill='black', font=font)
+            # Skip if it's not a directory
+            if not os.path.isdir(char_folder_path):
+                continue
 
-                # Save the image
-                image.save(char_image_path)
-                print(f"Saved image for '{char}' as {char_image_path}")
+            # Get all image files in the directory
+            image_files = [f for f in os.listdir(char_folder_path) if f.endswith('.png')]
 
-                # Append metadata to the dataset labels
-                dataset_labels.append({
-                    "image_path": char_image_path,
-                    "font_type": font_file,
-                    "label": char  # Keep the original label
-                })
+            # Select images within the specified range
+            images_to_delete = [
+                f for f in image_files
+                if start_index <= int(f.split('_')[-1].split('.')[0]) <= end_index
+            ]
 
-    # Mark the font as processed
-    processed_fonts.add(font_file)
-    with open(processed_fonts_file, 'a', encoding='utf-8') as file:
-        file.write(f"{font_file}\n")
+            # Delete the selected images
+            for image_name in images_to_delete:
+                image_path = os.path.join(char_folder_path, image_name)
+                try:
+                    os.remove(image_path)
+                    print(f"Deleted: {image_path}")
+                except FileNotFoundError:
+                    print(f"File not found, skipping: {image_path}")
 
-# Function to delete images within a specified range and renumber the remaining files
-def delete_images_in_range(start_index, end_index):
-    print(f"Deleting images from index {start_index} to {end_index} for every character...")
+            # Renumber the remaining images
+            remaining_files = [f for f in os.listdir(char_folder_path) if f.endswith('.png')]
+            remaining_files.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]))
 
-    # Iterate over all character folders in the dataset directory
-    for char_folder_name in os.listdir(dataset_dir):
-        char_folder_path = os.path.join(dataset_dir, char_folder_name)
+            for new_index, file_name in enumerate(remaining_files, start=1):
+                old_path = os.path.join(char_folder_path, file_name)
+                new_name = f"{char_folder_name}_{new_index}.png"
+                new_path = os.path.join(char_folder_path, new_name)
+                os.rename(old_path, new_path)
 
-        # Skip if it's not a directory
-        if not os.path.isdir(char_folder_path):
-            continue
+        print(f"Deletion of images from index {start_index} to {end_index} and renumbering is complete.")
 
-        # Get all image files in the directory
-        image_files = [f for f in os.listdir(char_folder_path) if f.endswith('.png')]
-
-        # Select images within the specified range
-        images_to_delete = [
-            f for f in image_files
-            if start_index <= int(f.split('_')[-1].split('.')[0]) <= end_index
-        ]
-
-        # Delete the selected images
-        for image_name in images_to_delete:
-            image_path = os.path.join(char_folder_path, image_name)
-            try:
-                os.remove(image_path)
-                print(f"Deleted: {image_path}")
-            except FileNotFoundError:
-                print(f"File not found, skipping: {image_path}")
-
-        # Renumber the remaining images
-        remaining_files = [f for f in os.listdir(char_folder_path) if f.endswith('.png')]
-        remaining_files.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]))
-
-        for new_index, file_name in enumerate(remaining_files, start=1):
-            old_path = os.path.join(char_folder_path, file_name)
-            new_name = f"{char_folder_name}_{new_index}.png"
-            new_path = os.path.join(char_folder_path, new_name)
-            os.rename(old_path, new_path)
-
-    print(f"Deletion of images from index {start_index} to {end_index} and renumbering is complete.")
+# Usage Example:
+generator = DatasetGenerator(text_file='text.txt', font_dir='fonts')
+generator.generate_images()
 
 # Ask user if they want to delete images and specify the range
 while True:
@@ -162,7 +146,7 @@ while True:
         try:
             start_index = int(input("Enter the start index of the range: "))
             end_index = int(input("Enter the end index of the range: "))
-            delete_images_in_range(start_index, end_index)
+            generator.delete(start_index, end_index)
         except ValueError:
             print("Invalid input. Please enter valid integer indices.")
     elif user_input == 'no':
@@ -170,13 +154,3 @@ while True:
         break
     else:
         print("Invalid input. Please enter 'yes' or 'no'.")
-
-# Sort dataset labels alphabetically by 'label'
-sorted_labels = sorted(dataset_labels, key=lambda x: x['label'])
-
-# Save the sorted dataset labels to a JSON file
-output_json_file = 'amharic_dataset_labels.json'
-with open(output_json_file, 'w', encoding='utf-8') as json_file:
-    json.dump(sorted_labels, json_file, ensure_ascii=False, indent=4)
-
-print(f"Labels have been sorted and saved to {output_json_file}")
