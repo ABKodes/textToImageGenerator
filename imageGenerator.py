@@ -2,6 +2,21 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 import json
 
+# Define a mapping for restricted characters
+restricted_char_map = {
+    '"': 'QUOTE',
+    '<': 'LT',
+    '>': 'GT',
+    '?': 'QUESTION',
+    '*': 'STAR',
+    '/': 'FORWARD_SLASH',
+    '.': 'DOT'
+}
+
+def sanitize_char_for_filename(char):
+    """Replace restricted characters with safe substitutes for filenames."""
+    return restricted_char_map.get(char, char)
+
 # Path to the text file containing the scraped text
 input_file = 'text.txt'
 
@@ -46,8 +61,11 @@ for font_file in font_files:
     # Loop through each character in the text
     for char in text:
         if not char.isspace():  # Skip spaces and newlines
+            # Replace restricted characters for filenames
+            safe_char = sanitize_char_for_filename(char)
+
             # Normalize the character folder name
-            char_folder_name = f"{char}"  # e.g., 'ሀ' for ሀ
+            char_folder_name = safe_char  # Ensure it uses the sanitized character
             char_folder_path = os.path.join(dataset_dir, char_folder_name)
 
             # Create a directory for the character if it doesn't exist
@@ -63,7 +81,7 @@ for font_file in font_files:
 
             # Generate 20 new images for this character for the current font
             for i in range(start_index, start_index + 1):
-                char_image_name = f"{char}_{i}.png"
+                char_image_name = f"{safe_char}_{i}.png"
                 char_image_path = os.path.join(char_folder_path, char_image_name)
 
                 # Create a blank image
@@ -83,15 +101,12 @@ for font_file in font_files:
                 image.save(char_image_path)
                 print(f"Saved image for '{char}' as {char_image_path}")
 
-                # Normalize the path to use forward slashes
-                image_path_normalized = os.path.normpath(os.path.abspath(char_image_path)).replace('\\', '/')
-
+                # Append metadata to the dataset labels
                 dataset_labels.append({
-                    "image_path": image_path_normalized,
+                    "image_path": char_image_path,
                     "font_type": font_file,
-                    "label": char
+                    "label": char  # Keep the original label
                 })
-
 
     # Mark the font as processed
     processed_fonts.add(font_file)
