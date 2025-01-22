@@ -6,7 +6,7 @@ import os
 class DatasetGenerator:
     def __init__(self, text_file, font_dir, dataset_dir='amharic_dataset'):
         self.text_file = text_file
-        self.font_dir = font_dir
+        self.font_dir = font_dir6
         self.dataset_dir = dataset_dir
         self.processed_fonts_file = 'processed_fonts.txt'
         self.restricted_char_map = {
@@ -67,7 +67,7 @@ class DatasetGenerator:
         max_existing_index = max([int(file.split('_')[-1].split('.')[0]) for file in existing_files if file.endswith('.png')], default=0)
         start_index = max_existing_index + 1
 
-        for i in range(start_index, start_index + 20 ):
+        for i in range(start_index, start_index + 20):
             char_image_name = f"{safe_char}_{i}.png"
             char_image_path = os.path.join(char_folder_path, char_image_name)
             image = Image.new('L', (32, 32), color='white')
