@@ -67,7 +67,7 @@ class DatasetGenerator:
         max_existing_index = max([int(file.split('_')[-1].split('.')[0]) for file in existing_files if file.endswith('.png')], default=0)
         start_index = max_existing_index + 1
 
-        for i in range(start_index, start_index + 1):
+        for i in range(start_index, start_index + 20 ):
             char_image_name = f"{safe_char}_{i}.png"
             char_image_path = os.path.join(char_folder_path, char_image_name)
             image = Image.new('L', (32, 32), color='white')
