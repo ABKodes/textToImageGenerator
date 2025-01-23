@@ -55,5 +55,5 @@ def split_dataset(dataset_dir, output_dir, train_ratio=0.8, val_ratio=0.1, test_
 
 # Example usage
 dataset_dir = 'amharic_dataset'  # Original dataset directory
-output_dir = 'amharic_dataset_split'  # Output directory for split data
+output_dir = 'amharic_dataset_splitted'  # Output directory for split data
 split_dataset(dataset_dir, output_dir)
