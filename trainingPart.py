@@ -2,9 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-<<<<<<< Tabnine <<<<<<<
 from torchvision import datasets, transforms
->>>>>>> Tabnine >>>>>>># {"conversationId":"db5909a7-fdd2-4eaa-aa87-a4a193e77ef4","source":"instruct"}
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 import numpy as np
